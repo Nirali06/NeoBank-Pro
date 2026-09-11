@@ -78,6 +78,7 @@ neobank-pro project/
 │           ├── ChatBot.jsx
 │           ├── BotAutomation.jsx
 │           └── AboutUs.jsx
+├── .gitignore               # Local secrets, databases, caches, and build output
 ├── requirements.txt
 └── README.md
 ```
@@ -238,7 +239,7 @@ Authorization: Bearer <token>
 | `GET` | `/auth/me` | Return the current user |
 | `POST` | `/auth/logout` | Delete the current session token |
 | `GET` | `/account` | Return account and user details |
-| `GET` | `/account/transactions?limit=50` | Return transaction history |
+| `GET` | `/account/transactions?limit=50` | Return transaction history, newest first with stable ID ordering |
 | `POST` | `/account/deposit` | Deposit `{ "amount": 1000, "note": "Salary" }` |
 | `POST` | `/account/withdraw` | Withdraw `{ "amount": 250, "note": "Cash" }` |
 | `POST` | `/account/transfer` | Transfer `{ "to_email": "user@example.com", "amount": 500, "note": "Dinner" }` |
@@ -262,7 +263,13 @@ The assistant supports ordinary questions and special commands. Examples:
 What is my balance?
 Show my spending summary
 What are the savings account requirements?
+Show transactions
+Show first 5 transactions
+Show first transaction
 Show the last 5 transactions
+Show last 2 transactions
+Show last transaction
+Show last 2 deposit transactions
 Deposit 1000 for groceries
 Withdraw 300
 Transfer 500 to user@example.com
@@ -270,7 +277,17 @@ Go to history
 Tell me about NeoBank
 ```
 
-Chat responses use `text/event-stream`. The frontend consumes `delta`, `done`, `automation`, `automation_error`, `show_transactions`, and `navigate_to` events to update the interface.
+Transaction commands navigate to the History tab and highlight the matching rows:
+
+- `show transactions` highlights the first 10 rows in the displayed history.
+- `first N transactions` highlights the first `N` rows.
+- `last N transactions` highlights the last `N` rows in the account timeline, meaning the oldest `N` transactions. This includes the original opening balance when it is within the requested range.
+- `last transaction` highlights the oldest transaction, normally the account-opening transaction.
+- Type filters can be combined with a range, for example `last 2 deposit transactions`.
+
+The transaction API returns rows newest first using `timestamp DESC, id DESC`, which makes ordering deterministic when several transactions share the same timestamp. The chatbot sends the requested range, type filter, and first/last position to the dashboard through a `show_transactions` SSE event.
+
+Other chat responses use `text/event-stream`. The frontend consumes `delta`, `done`, `automation`, `automation_error`, `show_transactions`, and `navigate_to` events to update the interface.
 
 ## Database
 
@@ -292,6 +309,8 @@ The database path is relative to the process working directory and is configured
 - The automation module parses commands on the backend, but the actual animated interaction is performed by the React frontend.
 - Server-side Playwright is not required for the current automation flow; `playwright_bot.py` is a parser and validator.
 - Frontend tests can be started with `npm test` when test files are added.
+- Transaction history requests are ordered by timestamp and transaction ID so chatbot highlighting remains stable for records created at the same time.
+- The root `.gitignore` excludes `.env` files, SQLite databases, Python caches, `node_modules`, React build output, logs, and editor files. `frontend/package-lock.json` remains tracked.
 
 ## Current Limitations and Security Considerations
 

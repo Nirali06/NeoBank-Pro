@@ -1,5 +1,5 @@
 // Dashboard.jsx — Banking dashboard with bot-automation compatible input IDs
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ChatBot from "./ChatBot";
 
 const API = "http://localhost:8000";
@@ -29,6 +29,7 @@ export default function Dashboard({ token, user, onLogout }) {
   // highlightedTxns: controls which rows to highlight when chatbot navigates to history
   const [highlightedTxns, setHighlightedTxns] = useState(null);
   // { limit, filter, highlight } — null means no highlight active
+  const transactionRefs = useRef(new Map());
 
   const notify = (msg, type = "success") => setToast({ msg, type });
 
@@ -50,6 +51,23 @@ export default function Dashboard({ token, user, onLogout }) {
   }, [api, onLogout]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (tab !== "history" || !highlightedTxns?.highlight || highlightedTxns.position !== "last") return;
+
+    const filteredRows = txns.filter(row => (
+      highlightedTxns.filter === "all" || row.type === highlightedTxns.filter
+    ));
+    const oldestRow = filteredRows[filteredRows.length - 1];
+    if (!oldestRow) return;
+
+    requestAnimationFrame(() => {
+      transactionRefs.current.get(oldestRow.id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    });
+  }, [tab, txns, highlightedTxns]);
 
   const doAction = async (path, body) => {
     setLoading(true);
@@ -263,7 +281,14 @@ export default function Dashboard({ token, user, onLogout }) {
                         && filteredIndex < start + limit;
                     }
                     return (
-                      <div key={t.id} className="nb-txn" style={{
+                      <div
+                        key={t.id}
+                        ref={node => {
+                          if (node) transactionRefs.current.set(t.id, node);
+                          else transactionRefs.current.delete(t.id);
+                        }}
+                        className="nb-txn"
+                        style={{
                         display:"flex", alignItems:"center", gap:14,
                         padding:"11px 8px", borderBottom:"1px solid #030c1b",
                         borderRadius:6, transition:"background .3s",

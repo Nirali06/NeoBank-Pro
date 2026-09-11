@@ -317,10 +317,13 @@ async def chat_stream(data: ChatReq, user: dict = Depends(get_current_user)):
     # ── FIX 2: SHOW TRANSACTIONS INTENT ───────────────────────────
     txn_params = parse_show_transactions(message)
     if txn_params:
+        direction = txn_params["position"]
+        transaction_word = "transaction" if txn_params["limit"] == 1 else "transactions"
+        transaction_scope = "" if txn_params["filter"] == "all" else f" {txn_params['filter']}"
         reply = (
             f"Sure! Opening the **History** tab and highlighting "
-            f"your {'last ' + str(txn_params['limit']) if txn_params['filter'] in ('last','all','first') else txn_params['filter'] + ' '}"
-            f"transactions for you."
+            f"your {direction} {txn_params['limit']}{transaction_scope} "
+            f"{transaction_word} for you."
         )
         save_message_once(user["id"], "assistant", reply, f"a:{msg_id}")
 
